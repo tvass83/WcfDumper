@@ -1,4 +1,4 @@
-WcfDumper is a command-line tool that dumps WCF ServiceDescription objects from live processes.
+**WcfDumper** is a command-line tool (based on "[CLR MD](https://github.com/microsoft/clrmd)") that dumps WCF ServiceDescription objects from live processes.
 The tool can be used to get a system-wide overview of the WCF endpoints exposed.
 
 ### WCF objects dumped and the relationship among them
