@@ -11,21 +11,34 @@ namespace WcfDumper
     {
         static void Main(string[] args)
         {
-            CheckArgsAndPrintSyntax(args);
+            var retCode = ArgParser.Parse(args, new string[0], new string[] { "-pids" });
 
-            var pids = ProcessHelper.GetPIDs(args[0]);
+            if (retCode != ErrorCode.Success)
+            {
+                PrintSyntaxAndExit(retCode);
+            }
+
+            List<int> pids;
+
+            if (ArgParser.SwitchesWithValues.ContainsKey("-pids"))
+            {
+                pids = ArgParser.SwitchesWithValues["-pids"].Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries).Select(x => int.Parse(x)).ToList();
+            }
+            else
+            {
+                pids = ProcessHelper.GetPIDs(args[0]);
+            }
+
             Console.WriteLine($"Number of matching processes: {pids.Count}");
 
             for (int i = 0; i < pids.Count; i++)
             {
-                Console.WriteLine($"Process {i+1} / {pids.Count}");
-
                 int pid = pids[i];
+
+                Console.WriteLine($"Process {i + 1} / {pids.Count} (pid: {pid})");
                 var wrapper = ClrMdHelper.AttachToLiveProcess(pid);
 
                 wrapper.TypesToDump.Add(TYPE_ServiceDescription);
-
-                wrapper.ClrInfoCallback = DumpClrInfo;
 
                 wrapper.ClrHeapIsNotWalkableCallback = () =>
                 {
@@ -42,7 +55,7 @@ namespace WcfDumper
             {
                 Console.WriteLine($"PID: {result.ProcessInfo.PID}");
                 Console.WriteLine("ServiceBehaviors: ");
-                
+
                 foreach (var svcBehavior in result.ServiceBehaviors)
                 {
                     Console.WriteLine($"\t{svcBehavior}");
@@ -81,7 +94,7 @@ namespace WcfDumper
                     {
                         Console.WriteLine();
                         Console.WriteLine("\tOperations:");
-                        
+
                         foreach (var operation in svcEndpoint.ContractOperations)
                         {
                             Console.WriteLine($"\t\t{operation.OperationName}");
@@ -99,14 +112,15 @@ namespace WcfDumper
             }
         }
 
-        private static void CheckArgsAndPrintSyntax(string[] args)
+        private static void PrintSyntaxAndExit(ErrorCode errorCode)
         {
-            if (args == null || args.Length == 0 || args.Length > 1)
-            {
-                Console.WriteLine("Usage:");
-                Console.WriteLine("WcfDumper <processname_with_wildcards>");
-                Environment.Exit(1);
-            }
+            Console.WriteLine($"Syntax error ({errorCode})");
+            Console.WriteLine();
+            Console.WriteLine("Usage:");
+            Console.WriteLine("WcfDumper <processname_or_regex>");
+            Console.WriteLine("OR");
+            Console.WriteLine("WcfDumper -pids pid1[;pid2;...;pidn]");
+            Environment.Exit(1);
         }
 
         private static void DumpTypes(ClrHeap heap, ulong obj, string type)
@@ -119,7 +133,7 @@ namespace WcfDumper
             foreach (var endpointObj in endpointObjs)
             {
                 var epEntry = new ServiceEndpointEntry();
-                                
+
                 // Get Contract
                 ulong contractObj = ClrMdHelper.GetLastObjectInHierarchy(heap, endpointObj, HIERARCHY_ServiceEndpoint_To_ContractType, 0);
                 string contractTypeName = heap.GetObjectType(contractObj).GetRuntimeType(contractObj).Name;
@@ -158,7 +172,7 @@ namespace WcfDumper
 
                 // Get CallbackContract
                 ulong cbcontractObj = ClrMdHelper.GetLastObjectInHierarchy(heap, endpointObj, HIERARCHY_ServiceEndpoint_To_CallbackContractType, 0);
-                
+
                 if (cbcontractObj != 0)
                 {
                     string cbcontractTypeName = heap.GetObjectType(cbcontractObj).GetRuntimeType(cbcontractObj).Name;
@@ -178,7 +192,7 @@ namespace WcfDumper
                     ClrType itemType = heap.GetObjectType(endpBehaviorObj);
                     epEntry.EndpointBehaviors.Add(itemType.Name);
                 }
-                
+
                 resultItem.ServiceEndpoints.Add(epEntry);
             }
 
@@ -192,26 +206,6 @@ namespace WcfDumper
             }
 
             RESULTS.Add(resultItem);
-        }
-
-        private static void DumpClrInfo(ClrInfo clrInfo)
-        {
-            Console.WriteLine("Found CLR Version: " + clrInfo.Version);
-
-            // This is the data needed to request the dac from the symbol server:
-            DacInfo dacInfo = clrInfo.DacInfo;
-            Console.WriteLine("Dac File:  {0}", dacInfo.PlatformAgnosticFileName);
-
-            // If we just happen to have the correct dac file installed on the machine,
-            // the "LocalMatchingDac" property will return its location on disk:
-            string dacLocation = clrInfo.LocalMatchingDac;
-
-            if (!string.IsNullOrEmpty(dacLocation))
-            {
-                Console.WriteLine("Local dac location: " + dacLocation);
-            }
-
-            Console.WriteLine();
         }
 
         public static string[] HIERARCHY_ServiceDescription_To_ServiceEndpoints = new[] { "endpoints", "items", "_items" };

@@ -18,11 +18,11 @@ namespace WcfDumper.Helpers
             return pi;
         }
 
-        public static List<int> GetPIDs(string wildcard)
+        public static List<int> GetPIDs(string processNameRegex)
         {            
             var processes = Process.GetProcesses();
             var ret = new List<int>();
-            Regex regex = new Regex(wildcard, RegexOptions.IgnoreCase);
+            Regex regex = new Regex(processNameRegex, RegexOptions.IgnoreCase);
             
             foreach (var process in processes)
             {
