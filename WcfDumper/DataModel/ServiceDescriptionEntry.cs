@@ -6,11 +6,10 @@ namespace WcfDumper.DataModel
     {
         public ServiceDescriptionEntry(int pid)
         {
-            ProcessInfo = new ProcessInfo();
-            ProcessInfo.PID = pid;
+            Pid = pid;
         }
 
-        public ProcessInfo ProcessInfo;
+        public int Pid;
         public List<string> ServiceBehaviors = new List<string>();
         public List<ServiceEndpointEntry> ServiceEndpoints = new List<ServiceEndpointEntry>();
     }

@@ -7,8 +7,8 @@ namespace WcfDumper.DataModel
 {
     public class DataTargetWrapper
     {
-        private string myFile;
-        private int myPid;
+        private readonly string myFile;
+        private readonly int myPid;
 
         public DataTargetWrapper(string file)
         {
@@ -22,7 +22,7 @@ namespace WcfDumper.DataModel
 
         public void Process()
         {
-            bool isTargetx64 = ProcessHelper.NativeMethods.Is64Bit(myPid);
+            bool isTargetx64 = NativeMethods.Is64Bit(myPid);
 
             bool archmatch = (isTargetx64 && Environment.Is64BitProcess) ||
                              (!isTargetx64 && !Environment.Is64BitProcess);

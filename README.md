@@ -10,12 +10,22 @@ Just pass a process name (or regex) as an argument and you'll get a similar outp
 ```
 >WcfDumper.exe wcfte.*
 Number of matching processes: 1
-Process 1 / 1
-Found CLR Version: v4.8.3761.00
-Dac File:  mscordacwks_Amd64_Amd64_4.8.3761.00.dll
-Local dac location: C:\Windows\Microsoft.NET\Framework64\v4.0.30319\mscordacwks.dll
 
-PID: 2376
+Data collection started.
+
+Process 1 / 1
+Process: WcfTest.exe (2376)
+CmdLine: "D:\WcfTest.exe"
+
+Data collection completed.
+
+Displaying data for:
+        Process: WcfTest.exe (2376)
+        CmdLine: "D:\WcfTest.exe"
+
+ServiceDescription 1/1
+----------------------
+
 ServiceBehaviors:
         System.ServiceModel.ServiceBehaviorAttribute
         System.ServiceModel.Description.ServiceAuthenticationBehavior

@@ -7,11 +7,6 @@ namespace WcfDumper.Helpers
 {
     public static class ClrMdHelper
     {
-        public static DataTargetWrapper LoadDumpFile(string file)
-        {
-            return new DataTargetWrapper(file);
-        }
-
         public static DataTargetWrapper AttachToLiveProcess(int pid)
         {
             return new DataTargetWrapper(pid);
@@ -19,7 +14,7 @@ namespace WcfDumper.Helpers
 
         public static List<ulong> GetLastObjectInHierarchyAsArray(ClrHeap heap, ulong obj, string[] hierarchy, int currentIndex, string arrayTypeToVerify)
         {
-            ulong arrayObj = ClrMdHelper.GetLastObjectInHierarchy(heap, obj, hierarchy, currentIndex);
+            ulong arrayObj = GetLastObjectInHierarchy(heap, obj, hierarchy, currentIndex);
             ClrType arrayType = heap.GetObjectType(arrayObj);
             
             Debug.Assert(arrayType.Name == arrayTypeToVerify);

@@ -18,24 +18,42 @@ namespace WcfDumper
                 PrintSyntaxAndExit(retCode);
             }
 
-            List<int> pids;
+            List<ProcessInfo> procInfos;
 
             if (ArgParser.SwitchesWithValues.ContainsKey("-pids"))
             {
-                pids = ArgParser.SwitchesWithValues["-pids"].Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries).Select(x => int.Parse(x)).ToList();
+                var pids = ParseAndValidatePids();
+                procInfos = pids.Select(x => ProcessHelper.GetProcessDetailsByPid(x)).ToList();
             }
             else
             {
-                pids = ProcessHelper.GetPIDs(args[0]);
+                procInfos = ProcessHelper.GetProcessDetails(args[0]);
             }
 
-            Console.WriteLine($"Number of matching processes: {pids.Count}");
+            Console.WriteLine($"Number of matching processes: {procInfos.Count}");
+            Console.WriteLine();
 
-            for (int i = 0; i < pids.Count; i++)
+            if (procInfos.Any())
             {
-                int pid = pids[i];
+                Console.WriteLine($"Data collection started.");
+                Console.WriteLine();
+            }
 
-                Console.WriteLine($"Process {i + 1} / {pids.Count} (pid: {pid})");
+            for (int i = 0; i < procInfos.Count; i++)
+            {
+                int pid = procInfos[i].PID;                                
+
+                Console.WriteLine($"Process {i + 1}/{procInfos.Count}");
+
+                if (string.IsNullOrWhiteSpace(procInfos[i].Name))
+                {
+                    Console.WriteLine($"WARNING: Process with pid '{pid}' does not exist.");
+                    Console.WriteLine();
+                    continue;
+                }
+
+                Console.WriteLine($"Process: {procInfos[i].Name} ({pid})");
+                Console.WriteLine($"CmdLine: {procInfos[i].CmdLine}");
                 var wrapper = ClrMdHelper.AttachToLiveProcess(pid);
 
                 wrapper.TypesToDump.Add(TYPE_ServiceDescription);
@@ -48,68 +66,111 @@ namespace WcfDumper
                 wrapper.ClrObjectOfTypeFoundCallback = DumpTypes;
 
                 wrapper.Process();
+
+                Console.WriteLine();
+            }
+
+            if (procInfos.Any())
+            {
+                Console.WriteLine($"Data collection completed.");
+                Console.WriteLine();
             }
 
             // Display results
-            foreach (var result in RESULTS)
+            foreach (var group in RESULTS.GroupBy(x => x.Pid))
             {
-                Console.WriteLine($"PID: {result.ProcessInfo.PID}");
-                Console.WriteLine("ServiceBehaviors: ");
-
-                foreach (var svcBehavior in result.ServiceBehaviors)
-                {
-                    Console.WriteLine($"\t{svcBehavior}");
-                }
-
+                var proc = procInfos.First(x => x.PID == group.Key);
+                Console.WriteLine($"Displaying data for:");
+                Console.WriteLine($"\tProcess: {proc.Name} ({proc.PID})");
+                Console.WriteLine($"\tCmdLine: {proc.CmdLine}");
                 Console.WriteLine();
-                Console.WriteLine("ServiceEndpoints:");
+                
+                int cnt = 0;
+                int cntAll = group.Count();
 
-                foreach (var svcEndpoint in result.ServiceEndpoints)
+                foreach (var result in group)
                 {
-                    Console.WriteLine($"\t{result.ProcessInfo.PID} | {svcEndpoint.Contract} | {svcEndpoint.CallbackContract ?? "<n/a>"} | {svcEndpoint.Uri}");
+                    Console.WriteLine($"ServiceDescription {++cnt}/{cntAll}");
+                    Console.WriteLine($"----------------------");
+                    Console.WriteLine();
+                    Console.WriteLine("ServiceBehaviors: ");
 
-                    if (svcEndpoint.EndpointBehaviors.Any())
+                    foreach (var svcBehavior in result.ServiceBehaviors)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine("\tEndpointBehaviors:");
-
-                        foreach (var endpointbehavior in svcEndpoint.EndpointBehaviors)
-                        {
-                            Console.WriteLine($"\t\t{endpointbehavior}");
-                        }
+                        Console.WriteLine($"\t{svcBehavior}");
                     }
 
-                    if (svcEndpoint.ContractBehaviors.Any())
+                    Console.WriteLine();
+                    Console.WriteLine("ServiceEndpoints:");
+
+                    foreach (var svcEndpoint in result.ServiceEndpoints)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine("\tContractBehaviors:");
+                        Console.WriteLine($"\t{proc.PID} | {svcEndpoint.Contract} | {svcEndpoint.CallbackContract ?? "<n/a>"} | {svcEndpoint.Uri}");
 
-                        foreach (var contractbehavior in svcEndpoint.ContractBehaviors)
+                        if (svcEndpoint.EndpointBehaviors.Any())
                         {
-                            Console.WriteLine($"\t\t{contractbehavior}");
-                        }
-                    }
+                            Console.WriteLine();
+                            Console.WriteLine("\tEndpointBehaviors:");
 
-                    if (svcEndpoint.ContractOperations.Any())
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine("\tOperations:");
-
-                        foreach (var operation in svcEndpoint.ContractOperations)
-                        {
-                            Console.WriteLine($"\t\t{operation.OperationName}");
-                            Console.WriteLine("\t\t\tOperationBehaviors:");
-
-                            foreach (var opBehavior in operation.OperationBehaviors)
+                            foreach (var endpointbehavior in svcEndpoint.EndpointBehaviors)
                             {
-                                Console.WriteLine($"\t\t\t\t{opBehavior}");
+                                Console.WriteLine($"\t\t{endpointbehavior}");
+                            }
+                        }
+
+                        if (svcEndpoint.ContractBehaviors.Any())
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine("\tContractBehaviors:");
+
+                            foreach (var contractbehavior in svcEndpoint.ContractBehaviors)
+                            {
+                                Console.WriteLine($"\t\t{contractbehavior}");
+                            }
+                        }
+
+                        if (svcEndpoint.ContractOperations.Any())
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine("\tOperations:");
+
+                            foreach (var operation in svcEndpoint.ContractOperations)
+                            {
+                                Console.WriteLine($"\t\t{operation.OperationName}");
+                                Console.WriteLine("\t\t\tOperationBehaviors:");
+
+                                foreach (var opBehavior in operation.OperationBehaviors)
+                                {
+                                    Console.WriteLine($"\t\t\t\t{opBehavior}");
+                                }
                             }
                         }
                     }
-                }
 
-                Console.WriteLine();
+                    Console.WriteLine();
+                }
             }
+        }
+
+        private static List<int> ParseAndValidatePids()
+        {
+            var pids = ArgParser.SwitchesWithValues["-pids"].Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
+            var ret = new List<int>();
+
+            foreach (var pid in pids)
+            {
+                if (int.TryParse(pid, out int result))
+                {
+                    ret.Add(result);
+                }
+                else
+                {
+                    Console.WriteLine($"ERROR: invalid process id: '{pid}'");
+                    Environment.Exit(1);
+                }
+            }
+
+            return ret;
         }
 
         private static void PrintSyntaxAndExit(ErrorCode errorCode)
@@ -117,7 +178,7 @@ namespace WcfDumper
             Console.WriteLine($"Syntax error ({errorCode})");
             Console.WriteLine();
             Console.WriteLine("Usage:");
-            Console.WriteLine("WcfDumper <processname_or_regex>");
+            Console.WriteLine("WcfDumper <processname_with_wildcards>");
             Console.WriteLine("OR");
             Console.WriteLine("WcfDumper -pids pid1[;pid2;...;pidn]");
             Environment.Exit(1);
@@ -208,28 +269,28 @@ namespace WcfDumper
             RESULTS.Add(resultItem);
         }
 
-        public static string[] HIERARCHY_ServiceDescription_To_ServiceEndpoints = new[] { "endpoints", "items", "_items" };
-        public static string[] HIERARCHY_ServiceDescription_To_ServiceBehaviors = new[] { "behaviors", "items", "_items" };
-        public static string[] HIERARCHY_ServiceEndpoint_To_Uri = new[] { "address", "uri" };
-        public static string[] HIERARCHY_ServiceEndpoint_To_ContractType = new[] { "contract", "contractType" };
-        public static string[] HIERARCHY_ServiceEndpoint_To_CallbackContractType = new[] { "contract", "callbackContractType" };
-        public static string[] HIERARCHY_ServiceEndpoint_To_EndpointBehaviors = new[] { "behaviors", "items", "_items" };
-        public static string[] HIERARCHY_ServiceEndpoint_To_ContractBehaviors = new[] { "contract", "behaviors", "items", "_items" };
-        public static string[] HIERARCHY_ServiceEndpoint_To_OperationDescriptions = new[] { "contract", "operations", "items", "_items" };
-        public static string[] HIERARCHY_OperationDescription_To_OperationBehaviors = new[] { "behaviors", "items", "_items" };
         public static string[] HIERARCHY_OperationDescription_To_Name = new[] { "name" };
+        public static string[] HIERARCHY_OperationDescription_To_OperationBehaviors = new[] { "behaviors", "items", "_items" };
+        public static string[] HIERARCHY_ServiceDescription_To_ServiceBehaviors = new[] { "behaviors", "items", "_items" };
+        public static string[] HIERARCHY_ServiceDescription_To_ServiceEndpoints = new[] { "endpoints", "items", "_items" };
+        public static string[] HIERARCHY_ServiceEndpoint_To_CallbackContractType = new[] { "contract", "callbackContractType" };
+        public static string[] HIERARCHY_ServiceEndpoint_To_ContractBehaviors = new[] { "contract", "behaviors", "items", "_items" };
+        public static string[] HIERARCHY_ServiceEndpoint_To_ContractType = new[] { "contract", "contractType" };
+        public static string[] HIERARCHY_ServiceEndpoint_To_EndpointBehaviors = new[] { "behaviors", "items", "_items" };
+        public static string[] HIERARCHY_ServiceEndpoint_To_OperationDescriptions = new[] { "contract", "operations", "items", "_items" };
+        public static string[] HIERARCHY_ServiceEndpoint_To_Uri = new[] { "address", "uri" };
 
         public const string FIELD_UriName = "m_String";
         public const string FIELD_XmlName = "decoded";
 
+        public const string TYPE_ContractBehaviorArray = "System.ServiceModel.Description.IContractBehavior[]";
+        public const string TYPE_EndpointBehaviorArray = "System.ServiceModel.Description.IEndpointBehavior[]";
+        public const string TYPE_ServiceBehaviorArray = "System.ServiceModel.Description.IServiceBehavior[]";
         public const string TYPE_ServiceDescription = "System.ServiceModel.Description.ServiceDescription";
         public const string TYPE_ServiceEndpointArray = "System.ServiceModel.Description.ServiceEndpoint[]";
-        public const string TYPE_ServiceBehaviorArray = "System.ServiceModel.Description.IServiceBehavior[]";
-        public const string TYPE_EndpointBehaviorArray = "System.ServiceModel.Description.IEndpointBehavior[]";
-        public const string TYPE_ContractBehaviorArray = "System.ServiceModel.Description.IContractBehavior[]";
-        public const string TYPE_OperationDescriptionArray = "System.ServiceModel.Description.OperationDescription[]";
         public const string TYPE_OperationBehaviorArray = "System.ServiceModel.Description.IOperationBehavior[]";
+        public const string TYPE_OperationDescriptionArray = "System.ServiceModel.Description.OperationDescription[]";
 
-        private static List<ServiceDescriptionEntry> RESULTS = new List<ServiceDescriptionEntry>();
+        private static readonly List<ServiceDescriptionEntry> RESULTS = new List<ServiceDescriptionEntry>();
     }
 }

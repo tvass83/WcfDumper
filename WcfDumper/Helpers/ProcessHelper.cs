@@ -1,68 +1,49 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Management;
 using WcfDumper.DataModel;
 
 namespace WcfDumper.Helpers
 {
     public static class ProcessHelper
-    {
-        public static ProcessInfo GetProcessDetails(int pid)
+    {        
+        public static List<ProcessInfo> GetProcessDetails(string processNameWildCards)
         {
-            var pi = new ProcessInfo();
-            pi.PID = pid;
-
-            return pi;
+            return GetProcessDetailsImpl($"select {CONST_ProcessId},{CONST_ProcessName},{CONST_CommandLine} from Win32_Process where {CONST_ProcessName} like '{processNameWildCards.Replace("*", "%")}'");
         }
 
-        public static List<int> GetPIDs(string processNameRegex)
-        {            
-            var processes = Process.GetProcesses();
-            var ret = new List<int>();
-            Regex regex = new Regex(processNameRegex, RegexOptions.IgnoreCase);
-            
-            foreach (var process in processes)
+        public static ProcessInfo GetProcessDetailsByPid(int pid)
+        {
+            var pInfo = GetProcessDetailsImpl($"select {CONST_ProcessId},{CONST_ProcessName},{CONST_CommandLine} from Win32_Process where {CONST_ProcessId}={pid}")
+                .SingleOrDefault();
+
+            return pInfo ?? new ProcessInfo() { PID = pid };
+        }
+
+        private static List<ProcessInfo> GetProcessDetailsImpl(string query)
+        {
+            var ret = new List<ProcessInfo>();
+
+            using (var mos = new ManagementObjectSearcher(query))
             {
-                using (process)
+                foreach (ManagementBaseObject item in mos.Get())
                 {
-                    if (regex.IsMatch(process.ProcessName))
+                    var pi = new ProcessInfo
                     {
-                        ret.Add(process.Id);
-                    }
+                        PID = (int)(uint)item[CONST_ProcessId],
+                        Name = (string)item[CONST_ProcessName],
+                        CmdLine = (string)item[CONST_CommandLine]
+                    };
+
+                    ret.Add(pi);
                 }
             }
 
-            return ret;
+            return ret.OrderBy(x => x.Name).ToList();
         }
 
-        internal static class NativeMethods
-        {
-            public static bool Is64Bit(int pid)
-            {
-                if (!Environment.Is64BitOperatingSystem)
-                {
-                    return false;
-                }
-
-                bool isWow64;
-
-                using (var process = Process.GetProcessById(pid))
-                {
-                    if (!IsWow64Process(process.Handle, out isWow64))
-                    {
-                        throw new Win32Exception();
-                    }
-                }
-
-                return !isWow64;
-            }
-
-            [DllImport("kernel32.dll", SetLastError = true, CallingConvention = CallingConvention.Winapi)]
-            [return: MarshalAs(UnmanagedType.Bool)]
-            private static extern bool IsWow64Process([In] IntPtr process, [Out] out bool wow64Process);
-        }
-    }    
+        private const string CONST_ProcessId = "ProcessId";
+        private const string CONST_ProcessName = "Name";
+        private const string CONST_CommandLine = "CommandLine";
+    }
 }
