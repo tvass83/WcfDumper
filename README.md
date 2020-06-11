@@ -5,10 +5,10 @@ The tool can be used to get a system-wide overview of the WCF endpoints exposed.
 ![WCF objects dumped](./docs/WCF_objects.svg)
 
 ### Usage
-Just pass a process name (or regex) as an argument and you'll get a similar output:
+Just pass a process name (optionally containing wildcards) as an argument and you'll get a similar output:
 
 ```
->WcfDumper.exe wcfte.*
+>WcfDumper.exe wcfte*
 Number of matching processes: 1
 
 Data collection started.
