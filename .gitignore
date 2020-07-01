@@ -4,6 +4,7 @@
 
 *.pdb
 *.sqlite
+*.user
 /.vs
 /packages
 /WcfDumper/obj

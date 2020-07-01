@@ -66,3 +66,6 @@ If you're only interested in the exposed WCF endpoint URIs then pipe the output 
 5132 | WcfTest.IPingService | WcfTest.IPingServiceCallback | net.pipe://localhost/PingService
 ```
 This way you can quickly identify the host process of a particular WCF service.
+
+If you like the project please consider a small donation via
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=57XFV9RLRQP52&source=url)
