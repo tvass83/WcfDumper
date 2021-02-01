@@ -41,6 +41,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Management" />
+    <Reference Include="System.ServiceModel" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -50,6 +51,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ArgParser.cs" />
+    <Compile Include="DataModel\IBindingSecurity.cs" />
+    <Compile Include="DataModel\NetNamedPipeBindingSecurity.cs" />
+    <Compile Include="DataModel\NetTcpBindingSecurity.cs" />
     <Compile Include="DataModel\OperationDescriptionEntry.cs" />
     <Compile Include="DataModel\DataTargetWrapper.cs" />
     <Compile Include="DataModel\ProcessInfo.cs" />
