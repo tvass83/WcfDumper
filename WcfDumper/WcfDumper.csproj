@@ -59,6 +59,7 @@
     <Compile Include="DataModel\ProcessInfo.cs" />
     <Compile Include="DataModel\ServiceDescriptionEntry.cs" />
     <Compile Include="DataModel\ServiceEndpointEntry.cs" />
+    <Compile Include="DataModel\UnknownBindingSecurity.cs" />
     <Compile Include="Helpers\ClrMdHelper.cs" />
     <Compile Include="Helpers\NativeMethods.cs" />
     <Compile Include="Helpers\ProcessHelper.cs" />

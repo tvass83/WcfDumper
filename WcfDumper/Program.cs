@@ -258,10 +258,15 @@ namespace WcfDumper
                 // Read binding security information.
                 ulong bindingObj = ClrMdHelper.GetLastObjectInHierarchy(heap, endpointObj, new [] {"binding"}, 0);
                 ClrType bindingType = heap.GetObjectType(bindingObj);
-                ulong securityObj = ClrMdHelper.GetLastObjectInHierarchy(heap, bindingObj, new[] { "security" }, 0);
 
-                if (bindingType.Name.EndsWith("NetTcpBinding"))
+                if (bindingType == null)
                 {
+                    epEntry.BindingSecurity = new UnknownBindingSecurity();
+                }
+                else if (bindingType.Name.EndsWith("NetTcpBinding"))
+                {
+                    ulong securityObj = ClrMdHelper.GetLastObjectInHierarchy(heap, bindingObj, new[] { "security" }, 0);
+
                     NetTcpBindingSecurity netTcpBindingSecurity = new NetTcpBindingSecurity();
                     netTcpBindingSecurity.SecurityMode = ClrMdHelper.GetObjectAs<SecurityMode>(heap, securityObj, FIELD_NetTcpBindingSecurityMode);
 
@@ -272,10 +277,16 @@ namespace WcfDumper
                 }
                 else if (bindingType.Name.EndsWith("NetNamedPipeBinding"))
                 {
+                    ulong securityObj = ClrMdHelper.GetLastObjectInHierarchy(heap, bindingObj, new[] { "security" }, 0);
+
                     NetNamedPipeBindingSecurity netNamedPipeSecurity = new NetNamedPipeBindingSecurity();
                     netNamedPipeSecurity.SecurityMode = ClrMdHelper.GetObjectAs<NetNamedPipeSecurityMode>(heap, securityObj, FIELD_NetTcpBindingSecurityMode);
 
                     epEntry.BindingSecurity = netNamedPipeSecurity;
+                }
+                else
+                {
+                    epEntry.BindingSecurity = new UnknownBindingSecurity(bindingType.Name);
                 }
 
                 // Get IEndpointBehavior[]
