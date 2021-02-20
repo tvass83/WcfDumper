@@ -1,7 +1,10 @@
 ﻿using Microsoft.Diagnostics.Runtime;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.ServiceModel;
+
 using WcfDumper.DataModel;
 using WcfDumper.Helpers;
 
@@ -106,6 +109,7 @@ namespace WcfDumper
                     foreach (var svcEndpoint in result.ServiceEndpoints)
                     {
                         Console.WriteLine($"\t{proc.PID} | {svcEndpoint.Contract} | {svcEndpoint.CallbackContract ?? "<n/a>"} | {svcEndpoint.Uri}");
+                        Console.WriteLine($"\t{svcEndpoint.BindingSecurity}");
 
                         if (svcEndpoint.EndpointBehaviors.Any())
                         {
@@ -197,6 +201,12 @@ namespace WcfDumper
 
                 // Get Contract
                 ulong contractObj = ClrMdHelper.GetLastObjectInHierarchy(heap, endpointObj, HIERARCHY_ServiceEndpoint_To_ContractType, 0);
+
+                if (contractObj == 0)
+                {
+                    continue;
+                }
+
                 string contractTypeName = heap.GetObjectType(contractObj).GetRuntimeType(contractObj).Name;
                 epEntry.Contract = contractTypeName;
 
@@ -245,6 +255,40 @@ namespace WcfDumper
                 string uri = ClrMdHelper.GetObjectAs<string>(heap, uriObj, FIELD_UriName);
                 epEntry.Uri = uri;
 
+                // Read binding security information.
+                ulong bindingObj = ClrMdHelper.GetLastObjectInHierarchy(heap, endpointObj, new [] {"binding"}, 0);
+                ClrType bindingType = heap.GetObjectType(bindingObj);
+
+                if (bindingType == null)
+                {
+                    epEntry.BindingSecurity = new UnknownBindingSecurity();
+                }
+                else if (bindingType.Name.EndsWith("NetTcpBinding"))
+                {
+                    ulong securityObj = ClrMdHelper.GetLastObjectInHierarchy(heap, bindingObj, new[] { "security" }, 0);
+
+                    NetTcpBindingSecurity netTcpBindingSecurity = new NetTcpBindingSecurity();
+                    netTcpBindingSecurity.SecurityMode = ClrMdHelper.GetObjectAs<SecurityMode>(heap, securityObj, FIELD_NetTcpBindingSecurityMode);
+
+                    ulong tcpTransportSecurityObj = ClrMdHelper.GetLastObjectInHierarchy(heap, securityObj, HIERARCHY_NetTcpBindingSecurity_To_TcpTransportSecurity, 0);
+                    netTcpBindingSecurity.ClientCredentialType = (TcpClientCredentialType)ClrMdHelper.GetObjectAs<int>(heap, tcpTransportSecurityObj, FIELD_NetTcpBindingClientCredentialType);
+
+                    epEntry.BindingSecurity = netTcpBindingSecurity;
+                }
+                else if (bindingType.Name.EndsWith("NetNamedPipeBinding"))
+                {
+                    ulong securityObj = ClrMdHelper.GetLastObjectInHierarchy(heap, bindingObj, new[] { "security" }, 0);
+
+                    NetNamedPipeBindingSecurity netNamedPipeSecurity = new NetNamedPipeBindingSecurity();
+                    netNamedPipeSecurity.SecurityMode = ClrMdHelper.GetObjectAs<NetNamedPipeSecurityMode>(heap, securityObj, FIELD_NetTcpBindingSecurityMode);
+
+                    epEntry.BindingSecurity = netNamedPipeSecurity;
+                }
+                else
+                {
+                    epEntry.BindingSecurity = new UnknownBindingSecurity(bindingType.Name);
+                }
+
                 // Get IEndpointBehavior[]
                 List<ulong> endpBehaviorObjs = ClrMdHelper.GetLastObjectInHierarchyAsArray(heap, endpointObj, HIERARCHY_ServiceEndpoint_To_EndpointBehaviors, 0, TYPE_EndpointBehaviorArray);
 
@@ -279,9 +323,12 @@ namespace WcfDumper
         public static string[] HIERARCHY_ServiceEndpoint_To_EndpointBehaviors = new[] { "behaviors", "items", "_items" };
         public static string[] HIERARCHY_ServiceEndpoint_To_OperationDescriptions = new[] { "contract", "operations", "items", "_items" };
         public static string[] HIERARCHY_ServiceEndpoint_To_Uri = new[] { "address", "uri" };
+        public static string[] HIERARCHY_NetTcpBindingSecurity_To_TcpTransportSecurity = new[] { "transportSecurity"};
 
         public const string FIELD_UriName = "m_String";
         public const string FIELD_XmlName = "decoded";
+        public const string FIELD_NetTcpBindingSecurityMode = "mode";
+        public const string FIELD_NetTcpBindingClientCredentialType = "clientCredentialType";
 
         public const string TYPE_ContractBehaviorArray = "System.ServiceModel.Description.IContractBehavior[]";
         public const string TYPE_EndpointBehaviorArray = "System.ServiceModel.Description.IEndpointBehavior[]";

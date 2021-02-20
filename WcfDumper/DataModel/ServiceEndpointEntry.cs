@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 
+
 namespace WcfDumper.DataModel
 {
     public class ServiceEndpointEntry
@@ -10,5 +11,6 @@ namespace WcfDumper.DataModel
         public List<string> EndpointBehaviors = new List<string>();
         public List<string> ContractBehaviors = new List<string>();
         public List<OperationDescriptionEntry> ContractOperations = new List<OperationDescriptionEntry>();
+        public IBindingSecurity BindingSecurity;
     }
 }
